@@ -8,3 +8,4 @@ resources:
   memory_gb : 0.5
   disk_size_gb: 10
 
+#cpu 2개 memory_gb 4 이상 추천

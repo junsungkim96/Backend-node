@@ -15,7 +15,18 @@
   </head>
   <body>
 
-    <p> <%= user.id %>의 마이페이지입니다.</p>
+    <%- include('nav.html') %>
+
+
+    <div class="container mt-4">
+        <h4 class="text-center mb-3"> 업로드 페이지</h4>
+
+        <form method="POST" action="/upload" enctype="multipart/form-data">
+            <input type="file" name="profile">
+            <button type="submit">전송</button>
+        </form>
+
+    </div>
 
     <!-- Optional JavaScript -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->

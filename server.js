@@ -5,18 +5,16 @@ app.use(bodyParser.urlencoded({extended: true}));
 const MongoClient = require('mongodb').MongoClient;
 const methodOverride = require('method-override');
 app.use(methodOverride('_method'));
-
 app.set('view engine', 'ejs');
+const {ObjectId} = require('mongodb');
 
 // middleware 요청과 응답 사이에 동작하는 코드
 app.use('/public', express.static('public'));
 
+// .env 파일에서 가져온 변수 사용하기 위한 설정
 require('dotenv').config()
-
-
 var db;
-
-MongoClient.connect(process.env.DB_URL, function(error, client){
+MongoClient.connect(process.env.DB_URL, {useUnifiedTopology: true}, function(error, client){
     if(error) return console.log(error);
 
     // database 연결하기
@@ -27,72 +25,7 @@ MongoClient.connect(process.env.DB_URL, function(error, client){
     });
 })
 
-app.get('/pet', function(req, res){
-    res.send('펫 용품 쇼핑을 할 수 있는 사이트입니다');
-})
-
-app.get('/beauty', function(req, res){
-    // console.log(req);
-    res.send('뷰티 용품 쇼핑 가능 사이트임');
-})
-
-app.get('/', function(req, res){
-    res.render('index.ejs');
-})
-
-app.get('/write', function(req, res){
-    // res.sendFile(__dirname + '/write.html');
-    res.render('write.ejs');
-})
-
-app.get('/list', function(req, res){
-    db.collection('post').find().toArray(function(error, result){
-        // console.log(result);
-        res.render('list.ejs', {posts: result});
-    });
-})
-
-app.get('/search', function(req, res){
-    console.log(req.query.value);
-    var search_condition = [
-        {
-            $search: {
-                index: 'titleSearch',
-                text:{
-                    query: req.query.value,
-                    path: "제목"
-                }
-            }
-        },
-        // {$sort: {_id: 1}},
-        // {$limit: 10},
-        // {$project: {제목: 1, _id: 1, score: {$meta: 'searchScore'}}}
-    ]
-    db.collection('post').aggregate(search_condition).toArray(function(error, result){
-        res.render('search.ejs', {posts: result})
-    })
-})
-
-app.get('/detail/:id', function(req, res){
-    db.collection('post').findOne({_id: parseInt(req.params.id)}, function(error, result){
-        res.render('detail.ejs', {data:result});
-    })
-})
-
-app.get('/edit/:id', function(req, res){
-    db.collection('post').findOne({_id: parseInt(req.params.id)}, function(error, result){
-        res.render('edit.ejs', {data: result});
-    })
-})
-
-app.put('/edit', function(req, res){
-    db.collection('post').updateOne({_id: parseInt(req.body.id)}, {$set: {제목: req.body.title, 날짜: req.body.date}}, function(error, result){
-        console.log('수정완료');
-        res.redirect('/list');
-    })
-});
-
-
+// Login 기능
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const session = require('express-session');
@@ -101,30 +34,24 @@ app.use(session({secret: '비밀코드', resave: true, saveUninitialized: false}
 app.use(passport.initialize());
 app.use(passport.session());
 
+// login, 회원가입 페이지
 app.get('/login', function(req, res){
     res.render('login.ejs');
 })
 
+// login 기능
 app.post('/login', passport.authenticate('local', {
     failureRedirect: '/fail'
 }), function(req, res){
     res.redirect('/')
 });
 
-
-app.get('/mypage', logincheck, function(req, res){
-    console.log(req.user);
-    res.render('mypage.ejs', {user : req.user});
+// 회원가입 기능
+app.post('/register', function(req, res){
+    db.collection('login').insertOne({id: req.body.id, pw: req.body.pw}, function(error, result){
+        res.redirect('/');
+    })
 })
-
-function logincheck(req, res, next){
-    if(req.user){
-        next()
-    } else{
-        res.send('Login failed');
-    }
-}
-
 
 passport.use(new LocalStrategy({
     usernameField: 'id',
@@ -157,12 +84,78 @@ passport.deserializeUser(function(id, done){
 });
 
 
-app.post('/register', function(req, res){
-    db.collection('login').insertOne({id: req.body.id, pw: req.body.pw}, function(error, result){
-        res.redirect('/');
+// 메인 홈페이지
+app.get('/', function(req, res){
+    res.render('index.ejs', {user: req.user});
+})
+
+// write 페이지
+app.get('/write', function(req, res){
+    // res.sendFile(__dirname + '/write.html');
+    res.render('write.ejs');
+})
+
+// list 페이지
+app.get('/list', function(req, res){
+    db.collection('post').find().toArray(function(error, result){
+        // console.log(result);
+        res.render('list.ejs', {posts: result});
+    });
+})
+
+app.get('/search', function(req, res){
+    var search_condition = [
+        {
+            $search: {
+                index: 'titleSearch',
+                text:{
+                    query: req.query.value,
+                    path: "제목"
+                }
+            }
+        },
+        // {$sort: {_id: 1}},
+        // {$limit: 10},
+        // {$project: {제목: 1, _id: 1, score: {$meta: 'searchScore'}}}
+    ]
+    db.collection('post').aggregate(search_condition).toArray(function(error, result){
+        res.render('search.ejs', {posts: result})
     })
 })
 
+// detail 페이지
+app.get('/detail/:id', function(req, res){
+    db.collection('post').findOne({_id: parseInt(req.params.id)}, function(error, result){
+        res.render('detail.ejs', {data:result});
+    })
+})
+
+// edit 페이지
+app.get('/edit/:id', function(req, res){
+    db.collection('post').findOne({_id: parseInt(req.params.id)}, function(error, result){
+        res.render('edit.ejs', {data: result});
+    })
+})
+
+// edit 페이지 내 수정기능능
+app.put('/edit', function(req, res){
+    db.collection('post').updateOne({_id: parseInt(req.body.id)}, {$set: {제목: req.body.title, 날짜: req.body.date}}, function(error, result){
+        console.log('수정완료');
+        res.redirect('/list');
+    })
+});
+
+
+// login 확인 기능
+function logincheck(req, res, next){
+    if(req.user){
+        next()
+    } else{
+        res.send('Login failed');
+    }
+}
+
+// 게시물 발행
 app.post('/add', (req, res) => {
     res.send('전송완료');
     db.collection('counter').findOne({name: '게시물갯수'}, function(error, result){
@@ -178,13 +171,10 @@ app.post('/add', (req, res) => {
     });
 })
 
+// 게시물 삭제
 app.delete('/delete', function(req, res){
-    console.log(req.body);
-    req.body._id = parseInt(req.body._id);
-    
-    var delete_item = {_id: req.body._id, 작성자: req.user._id}
-    
-    db.collection('post').deleteOne(delete_item, function(error, result){
+    req.body._id = parseInt(req.body._id);    
+    db.collection('post').deleteOne(req.body, function(error, result){
         console.log('삭제완료');
         res.status(200).send({message: '성공했습니다'});
     })
@@ -193,3 +183,69 @@ app.delete('/delete', function(req, res){
 //middleware
 app.use('/shop', require('./routes/shop.js'));
 
+
+let multer = require('multer');
+// var storage = multer.memoryStorage({}); RAM에다가 휘발성 있게 저장하기
+var storage = multer.diskStorage({
+    destination: function(req, file, cb){
+        cb(null, './public/image');
+    },
+    filename: function(req, file, cb){
+        cb(null, file.originalname + new Date())
+    },
+    filefilter: function(req,file, cb){
+
+    }
+})
+
+var upload = multer({storage: storage});
+
+// Image 업로드 페이지
+app.get('/upload', function(req, res){
+    res.render('upload.ejs');
+})
+
+// 업로드 기능
+app.post('/upload', upload.single('profile'), function(req, res){
+    res.send('업로드완료');
+})
+
+// 이미지 조회 페이지
+app.get('/image/:imageName', function(req, res){
+    res.sendFile(__dirname + '/public/image/' + req.params.imageName);
+})
+
+
+// 채팅방 생성 기능
+app.post('/chatroom', function(req, res){
+    var save = {
+        title: '무슨채팅방',
+        member: [ObjectId(req.body.당한사람id), req.user._id],
+        date: new Date()
+    }
+    db.collection('chatroom').insertOne(save).then(function(error, result){
+        res.send('성공');
+    })
+})
+
+// chat 페이지
+app.get('/chat', logincheck, function(요청, 응답){
+    db.collection('chatroom').find({ member : 요청.user._id }).toArray().then((결과)=>{
+      console.log(결과);
+      응답.render('chat.ejs', {data : 결과})
+    })
+});
+
+// 메시지 보내기 기능
+app.post('/message/:id', logincheck, function(req, res){
+    var 저장할거 = {
+        parent: req.body.parent,
+        content: req.body.content,
+        userid: req.user._id,
+        date: new Date()
+    }
+    db.collection('message').insertOne({}).then(()=>{
+        console.log('DB저장성공');
+        res.send('DB저장성공');
+    })
+})

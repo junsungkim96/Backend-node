@@ -29,7 +29,6 @@
         var 입력한값 = $('#search-input').val();
         window.location.replace('/search?value=' + 입력한값);
       });
-
     </script>
 
 
@@ -41,34 +40,45 @@
             <h4> 할일 제목: <%= posts[i].제목 %> </h4>
             <p> 할일 마감날짜: <%= posts[i].날짜 %> </p>
             <div>
-            <button class = "btn btn-danger delete" data-id="<%= posts[i]._id %>">삭제</button>
-            <button class = "btn btn-danger delete" data-id="<%= posts[i]._id %>">수정</button>
+              <button class = "btn btn-danger delete" data-id="<%= posts[i]._id %>">삭제</button>
+              <button class = "btn btn-danger modify" data-id="<%= posts[i]._id %>">수정</button>
+              <button class="btn btn-secondary chat" data-id="<%= posts[i].작성자 %>">채팅하기</button>
             </div>
           </li>
         <%}%>
       </ul>
     </div>
     
+    <!-- Ajax 요청 -->
+    <!-- 삭제하기 -->
     <script>
-      
       <!-- 클래스가 delete인 요소를 클릭하면 delete 요청을 해주세요 -->
       $('.delete').click(function(e){
         var post_num = e.target.dataset.id;
         var pressed = $(this);
-        console.log(post_num);
-
         $.ajax({
           method : 'DELETE',
           url : '/delete',
           data : {_id : post_num}
         }).done(function(result){
-          console.log('성공했어염');
           pressed.parent('li').fadeOut();
         }).fail(function(xhr, textStatus, errorThrown){
           console.log(xhr, textStatus, errorThrown);
         });
       })
+    </script>
 
+    <!-- 채팅하기 -->
+    <script>
+      $('.chat').click(function(e){
+        <!-- console.log($(this).data('id')); -->
+        var _id = e.target.dataset.id;
+        console.log(_id);
+        $.post('/chatroom', {당한사람id : _id})
+        .then(()=>{
+        console.log('채팅방 게시물 생성완료')
+        })
+      });
     </script>
 
     
