@@ -14,8 +14,10 @@
 
     <%- include('nav.html') %>
 
-    <h4> <%= user.id%> 님, 반갑습니다</h4>
-
+    <% if (user){ %>
+      <h4> <%= user.id %> 님, 반갑습니다</h4>
+    <% } %>
+    
 
     <!-- Optional JavaScript -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->

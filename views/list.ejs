@@ -71,7 +71,6 @@
     <!-- 채팅하기 -->
     <script>
       $('.chat').click(function(e){
-        <!-- console.log($(this).data('id')); -->
         var _id = e.target.dataset.id;
         console.log(_id);
         $.post('/chatroom', {당한사람id : _id})

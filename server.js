@@ -7,6 +7,13 @@ const methodOverride = require('method-override');
 app.use(methodOverride('_method'));
 app.set('view engine', 'ejs');
 const {ObjectId} = require('mongodb');
+//socket.io 
+const http = require('http').createServer(app);
+const {Server} = require('socket.io');
+const io = new Server(http);
+const cors = require('cors');
+app.use(cors());
+
 
 // middleware 요청과 응답 사이에 동작하는 코드
 app.use('/public', express.static('public'));
@@ -20,9 +27,35 @@ MongoClient.connect(process.env.DB_URL, {useUnifiedTopology: true}, function(err
     // database 연결하기
     db = client.db('todoapp');
 
-    app.listen(process.env.PORT, function(){
+    http.listen(process.env.PORT, function(){
         console.log('listening on 8080');
     });
+})
+
+app.get('/socket', function(req, res){
+    res.render('socket.ejs');
+})
+
+io.on('connection', function(socket){
+    // console.log('유저접속됨');
+    // console.log(socket.id);
+    // 메시지 수신
+
+    socket.on('room1-send', function(data){
+        io.to('room1').emit('broadcast', data);
+    })
+
+    socket.on('joinroom', function(data){
+        socket.join('room1');
+    })
+
+    socket.on('user-send', function(data){
+        // console.log(data);
+        // 전체에게 발신
+        io.emit('broadcast', data);
+        // 특정 socket에게만 발신
+        // io.to(socket.id).emit('broadcast', data);
+    })
 })
 
 // Login 기능
@@ -43,13 +76,13 @@ app.get('/login', function(req, res){
 app.post('/login', passport.authenticate('local', {
     failureRedirect: '/fail'
 }), function(req, res){
-    res.redirect('/')
+    res.redirect('/valid')
 });
 
 // 회원가입 기능
 app.post('/register', function(req, res){
     db.collection('login').insertOne({id: req.body.id, pw: req.body.pw}, function(error, result){
-        res.redirect('/');
+        res.redirect('/valid');
     })
 })
 
@@ -59,7 +92,6 @@ passport.use(new LocalStrategy({
     session: true,
     passReqToCallback: false,    
 }, function(입력한아이디, 입력한비번, done){
-    console.log(입력한아이디, 입력한비번);
     db.collection('login').findOne({id: 입력한아이디}, function(error, result){
         if(error) return done(error);
         if(!result) return done(null, false, {message: '존재하지 않는 아이디요'})
@@ -83,20 +115,32 @@ passport.deserializeUser(function(id, done){
     })
 });
 
+// login 확인 기능
+function logincheck(req, res, next){
+    if(req.user){
+        next()
+    } else{
+        res.send('Login required');
+    }
+}
 
 // 메인 홈페이지
 app.get('/', function(req, res){
+    res.render('index.ejs', {user: null});
+})
+
+app.get('/valid', function(req, res){
     res.render('index.ejs', {user: req.user});
 })
 
 // write 페이지
-app.get('/write', function(req, res){
+app.get('/write', logincheck, function(req, res){
     // res.sendFile(__dirname + '/write.html');
     res.render('write.ejs');
 })
 
 // list 페이지
-app.get('/list', function(req, res){
+app.get('/list', logincheck, function(req, res){
     db.collection('post').find().toArray(function(error, result){
         // console.log(result);
         res.render('list.ejs', {posts: result});
@@ -144,16 +188,6 @@ app.put('/edit', function(req, res){
         res.redirect('/list');
     })
 });
-
-
-// login 확인 기능
-function logincheck(req, res, next){
-    if(req.user){
-        next()
-    } else{
-        res.send('Login failed');
-    }
-}
 
 // 게시물 발행
 app.post('/add', (req, res) => {
@@ -251,21 +285,29 @@ app.post('/message', logincheck, function(req, res){
 })
 
 
-// 서버와 유저간 실시간 소통채널 열기
+// 서버와 유저간 실시간 소통채널 열기 (server-sent event)
 app.get('/message/:id', logincheck, function(req, res){
     res.writeHead(200, {
         "Connection": "keep-alive",
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache"
-    })
-    db.collection('message').find({parent: req.params.id}).toArray().then((result)=>{
-        res.write('event: test \n');
-        res.write('data:' + JSON.stringify(result) +  '\n\n');
-    })
-    .catch((error) => {
-        console.error('Error fetching messages:', error);
-        res.write('event: error \n');
-        res.write('data:' + JSON.stringify({ error: 'Failed to fetch messages' }) + '\n\n');
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache",
     });
+    console.log("id:" + req.params.id);
+    db.collection('message').find({parent: req.params.id}).toArray()
+    .then((result)=>{
+        console.log("result:" + JSON.stringify(result) + '\n');
+        res.write('event: test \n');
+        res.write(`data: ${JSON.stringify(result)}\n\n`); //서버에서 실시간 전송시 문자자료만 전송가능
+    })
 
+    // MongoDB Change Stream 사용
+    const pipeline = [
+        {$match: {'fullDocument.parent': req.params.id}}
+    ];
+    const collection = db.collection('message');
+    const changeStream = collection.watch(pipeline);
+    changeStream.on('change', (result)=>{
+        res.write('event: test\n');
+        res.write('data: ' + JSON.stringify([result.fullDocument]) + '\n\n');
+    })
 })

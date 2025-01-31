@@ -9,6 +9,15 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
     <link rel="stylesheet" href="/public/main.css">
 
+    <style>
+      /* Click effect for selected chat item */
+      .list-group-item.active {
+        background-color: gray;
+        color: black;
+        font-weight: bold;
+      }
+    </style>
+
     <title>Hello, world!</title>
   </head>
   <body>
@@ -30,9 +39,6 @@
          <div class="col-9 p-0">
            <div class="chat-room">
               <ul class="list-group chat-content">
-                <li><span class="chat-box">채팅방1 내용</span></li>
-                <li><span class="chat-box">채팅방1 내용</span></li>
-                <li><span class="chat-box mine">채팅방1 내용</span></li>
               </ul>
             <div class="input-group">
               <input class="form-control" id="chat-input">
@@ -46,19 +52,39 @@
     <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
 
     <script>
-      var 지금누른채팅방id;
-      var eventSource;
-      $('.list-group-item').click(function(){
-        지금누른채팅방id = this.dataset.id;
-        if (eventSource != undefined){
-          eventSource.close();
-        }
+      var 지금누른채팅방id = null;
+      var eventSource = null;
 
+      // Chat room click event
+      $(document).on('click', '.list-group-item', function() {
+        var clickedId = $(this).data('id');
+        if (지금누른채팅방id === clickedId) return; // Prevent reloading the same chat
+
+        지금누른채팅방id = clickedId;
+
+        // Remove active class from all, then add to clicked
+        $('.list-group-item').removeClass('active');
+        $(this).addClass('active');
+
+        // Clear previous chat messages
+        $('.chat-content').html('');
+
+        // Close previous EventSource connection if it exists
+        //if (eventSource) {
+        //  eventSource.close();
+        //}
+
+        // Open new EventSource connection
         eventSource = new EventSource('/message/' + 지금누른채팅방id);
-        eventSource.addEventListener('test', function(e){
-          console.log(JSON.parse(e.data));
+        eventSource.addEventListener('test1', function (e) {
+          console.log("Raw event data:", e.data);  // Log raw response
+          var messages = JSON.parse(e.data);
+          console.log(messages)
+          messages.forEach((msg) => {
+            $('.chat-content').append(`<li><span class="chat-box">${msg.content}</span></li>`);
+          });
         });
-      })
+      });
 
       $('#send').click(function(){
         var 채팅내용 = $('#chat-input').val();
@@ -69,6 +95,7 @@
         $.post('/message', 보낼거)
         .then(()=>{
           console.log('메시지 DB 저장완료');
+          $('#chat-input').val('');
         })
       })
     </script>
