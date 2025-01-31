@@ -15,12 +15,11 @@
     <%- include('nav.html') %>
 
     <div class="container p-4 detail">
-
       <div class="row">
         <div class="col-3">
           <ul class="list-group chat-list">
             <% for (let i = 0; i < data.length; i++){ %> 
-            <li class="list-group-item" data-id="">
+            <li class="list-group-item" data-id= "<%= data[i]._id %>">
               <h6> <%= data[i].title %> </h6>
               <h6 class="text-small"> <%= data[i].member[0] %> </h6>
             </li>
@@ -42,8 +41,39 @@
           </div>
         </div>
       </div>
-    
     </div>
+
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+
+    <script>
+      var 지금누른채팅방id;
+      var eventSource;
+      $('.list-group-item').click(function(){
+        지금누른채팅방id = this.dataset.id;
+        if (eventSource != undefined){
+          eventSource.close();
+        }
+
+        eventSource = new EventSource('/message/' + 지금누른채팅방id);
+        eventSource.addEventListener('test', function(e){
+          console.log(JSON.parse(e.data));
+        });
+      })
+
+      $('#send').click(function(){
+        var 채팅내용 = $('#chat-input').val();
+        var 보낼거 = {
+          parent: 지금누른채팅방id,
+          content: 채팅내용
+        }
+        $.post('/message', 보낼거)
+        .then(()=>{
+          console.log('메시지 DB 저장완료');
+        })
+      })
+    </script>
+
+
 
     <!-- Optional JavaScript -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->

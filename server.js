@@ -231,21 +231,41 @@ app.post('/chatroom', function(req, res){
 // chat 페이지
 app.get('/chat', logincheck, function(요청, 응답){
     db.collection('chatroom').find({ member : 요청.user._id }).toArray().then((결과)=>{
-      console.log(결과);
       응답.render('chat.ejs', {data : 결과})
     })
 });
 
 // 메시지 보내기 기능
-app.post('/message/:id', logincheck, function(req, res){
+app.post('/message', logincheck, function(req, res){
+    console.log(req.body);
     var 저장할거 = {
         parent: req.body.parent,
         content: req.body.content,
         userid: req.user._id,
         date: new Date()
     }
-    db.collection('message').insertOne({}).then(()=>{
+    db.collection('message').insertOne(저장할거).then(()=>{
         console.log('DB저장성공');
         res.send('DB저장성공');
     })
+})
+
+
+// 서버와 유저간 실시간 소통채널 열기
+app.get('/message/:id', logincheck, function(req, res){
+    res.writeHead(200, {
+        "Connection": "keep-alive",
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache"
+    })
+    db.collection('message').find({parent: req.params.id}).toArray().then((result)=>{
+        res.write('event: test \n');
+        res.write('data:' + JSON.stringify(result) +  '\n\n');
+    })
+    .catch((error) => {
+        console.error('Error fetching messages:', error);
+        res.write('event: error \n');
+        res.write('data:' + JSON.stringify({ error: 'Failed to fetch messages' }) + '\n\n');
+    });
+
 })
